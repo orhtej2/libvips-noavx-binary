@@ -16,18 +16,48 @@ latest_tag_from_remote() {
   local repo_url="$1"
   local tag_pattern="$2"
 
-  local tags
-  tags=$(git ls-remote --tags --refs "$repo_url" \
-    | awk '{print $2}' \
-    | sed 's#refs/tags/##' \
-    | grep -Ei "$tag_pattern" \
-    | grep -Eiv 'alpha|beta|rc|pre|preview' || true)
+  local tags=""
+  local attempt
+  # Some git hosts (e.g. gitlab.freedesktop.org) are occasionally flaky, so
+  # retry a few times before giving up on this repo.
+  for attempt in 1 2 3; do
+    tags=$(git ls-remote --tags --refs "$repo_url" 2>/dev/null \
+      | awk '{print $2}' \
+      | sed 's#refs/tags/##' \
+      | grep -Ei "$tag_pattern" \
+      | grep -Eiv 'alpha|beta|rc|pre|preview' || true)
+
+    if [[ -n "$tags" ]]; then
+      break
+    fi
+
+    if [[ "$attempt" -lt 3 ]]; then
+      sleep 3
+    fi
+  done
 
   if [[ -z "$tags" ]]; then
     return 1
   fi
 
   printf '%s\n' "$tags" | sort -V | tail -n 1
+}
+
+update_fftw_sha256() {
+  local version="${FFTW_TAG#fftw-}"
+  local url="https://www.fftw.org/fftw-${version}.tar.gz"
+  local sha
+
+  if sha=$(curl -fsSL "$url" | sha256sum | awk '{print $1}') && [[ -n "$sha" ]]; then
+    if [[ "$sha" != "${FFTW_SHA256:-}" ]]; then
+      echo "Updated FFTW_SHA256 for $FFTW_TAG"
+      FFTW_SHA256="$sha"
+    else
+      echo "No change for FFTW_SHA256"
+    fi
+  else
+    echo "Could not compute sha256 for $url; keeping existing FFTW_SHA256"
+  fi
 }
 
 update_var_if_newer() {
@@ -63,7 +93,8 @@ update_var_if_newer "LCMS2_TAG" "LCMS2_REPO" '^lcms2\.[0-9]+$'
 update_var_if_newer "CGIF_TAG" "CGIF_REPO" '^v[0-9]+(\.[0-9]+){2,3}$'
 update_var_if_newer "LIBEXIF_TAG" "LIBEXIF_REPO" '^v[0-9]+(\.[0-9]+){2,3}$'
 update_var_if_newer "FFTW_TAG" "FFTW_REPO" '^fftw-[0-9]+(\.[0-9]+){1,3}$'
-update_var_if_newer "ORC_TAG" "ORC_REPO" '^orc-[0-9]+(\.[0-9]+){1,3}$'
+update_fftw_sha256
+update_var_if_newer "ORC_TAG" "ORC_REPO" '^(orc-)?[0-9]+(\.[0-9]+){1,3}$'
 update_var_if_newer "HIGHWAY_TAG" "HIGHWAY_REPO" '^[0-9]+(\.[0-9]+){1,3}$'
 update_var_if_newer "OPENJPEG_TAG" "OPENJPEG_REPO" '^v?[0-9]+(\.[0-9]+){2,3}$'
 update_var_if_newer "LIBDE265_TAG" "LIBDE265_REPO" '^v?[0-9]+(\.[0-9]+){2,3}$'
@@ -108,6 +139,7 @@ LIBEXIF_TAG="$LIBEXIF_TAG"
 
 FFTW_REPO="$FFTW_REPO"
 FFTW_TAG="$FFTW_TAG"
+FFTW_SHA256="$FFTW_SHA256"
 
 ORC_REPO="$ORC_REPO"
 ORC_TAG="$ORC_TAG"

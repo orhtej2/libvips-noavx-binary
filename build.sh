@@ -81,7 +81,7 @@ load_dependency_lock() {
         LCMS2_REPO LCMS2_TAG
         CGIF_REPO CGIF_TAG
         LIBEXIF_REPO LIBEXIF_TAG
-        FFTW_REPO FFTW_TAG
+        FFTW_REPO FFTW_TAG FFTW_SHA256
         ORC_REPO ORC_TAG
         HIGHWAY_REPO HIGHWAY_TAG
         OPENJPEG_REPO OPENJPEG_TAG
@@ -420,26 +420,30 @@ build_fftw() {
     log_info "Building fftw (static)..."
     cd "$WORK_DIR"
 
-    checkout_repo_tag "fftw" "$FFTW_REPO" "$FFTW_TAG"
+    # The FFTW git mirror does not include its generated codelets (those
+    # require an OCaml toolchain to regenerate via genfft); build from the
+    # official release tarball instead, which ships them pre-generated.
+    # Everything is downloaded/extracted under $WORK_DIR (build-work/).
+    local fftw_version="${FFTW_TAG#fftw-}"
+    local fftw_dir="fftw-${fftw_version}"
+    local tarball="${fftw_dir}.tar.gz"
+    local tarball_url="https://www.fftw.org/${tarball}"
 
-    cd fftw
-
-    if [ ! -f "configure" ]; then
-        log_info "Generating fftw configure script..."
-        if [ -f "bootstrap.sh" ]; then
-            ./bootstrap.sh --prefix="$PREFIX" --disable-shared --enable-static --disable-fortran
-        else
-            autoreconf -fi
-        fi
+    if [ ! -f "$tarball" ] || ! echo "${FFTW_SHA256}  ${tarball}" | sha256sum -c - >/dev/null 2>&1; then
+        log_info "Downloading $tarball_url"
+        curl -fsSL -o "$tarball" "$tarball_url"
     fi
+    echo "${FFTW_SHA256}  ${tarball}" | sha256sum -c -
 
-    if [ ! -f "Makefile" ]; then
-        ./configure --prefix="$PREFIX" \
-                    --disable-shared \
-                    --enable-static \
-                    --disable-fortran \
-                    --with-pic
-    fi
+    rm -rf "$fftw_dir"
+    tar -xzf "$tarball"
+    cd "$fftw_dir"
+
+    ./configure --prefix="$PREFIX" \
+                --disable-shared \
+                --enable-static \
+                --disable-fortran \
+                --with-pic
     make -j"$BUILD_JOBS"
     make -j"$BUILD_JOBS" install
     cd ..

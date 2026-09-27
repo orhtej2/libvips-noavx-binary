@@ -30,9 +30,10 @@ LIBEXIF_TAG="v0.6.26"
 
 FFTW_REPO="https://github.com/FFTW/fftw3.git"
 FFTW_TAG="fftw-3.3.11"
+FFTW_SHA256="5630c24cdeb33b131612f7eb4b1a9934234754f9f388ff8617458d0be6f239a1"
 
 ORC_REPO="https://gitlab.freedesktop.org/gstreamer/orc.git"
-ORC_TAG="orc-0.4.28"
+ORC_TAG="0.4.44"
 
 HIGHWAY_REPO="https://github.com/google/highway.git"
 HIGHWAY_TAG="1.4.0"
