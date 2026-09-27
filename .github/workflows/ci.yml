@@ -1,0 +1,30 @@
+name: PR Build Validation
+
+on:
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-amd64:
+    name: build-amd64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust toolchain (for libimagequant/cargo-c)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build libvips for amd64 (x86_64-v1)
+        run: |
+          set -euxo pipefail
+          chmod +x ./build.sh
+          ./build.sh latest
