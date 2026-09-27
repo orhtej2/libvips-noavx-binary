@@ -217,10 +217,12 @@ install_rust_toolchain() {
 
     if ! command -v cargo-cbuild &> /dev/null; then
         log_info "Installing cargo-c (with vendored/statically-linked OpenSSL, no libssl-dev needed)..."
-        # Unset the sandboxed pkg-config search path for this host build-tool
-        # step: it must not see our target static libs, and vendored-openssl
-        # means it does not need the system's openssl.pc either.
-        env -u PKG_CONFIG_LIBDIR -u PKG_CONFIG_PATH \
+        # Unset the sandboxed pkg-config env for this host build-tool step: it
+        # must not see our target static libs, must not force --static (which
+        # would drag in the system libcurl's private deps like gnutls/gpg-error
+        # /unistring), and vendored-openssl means it does not need the
+        # system's openssl.pc either.
+        env -u PKG_CONFIG_LIBDIR -u PKG_CONFIG_PATH -u PKG_CONFIG \
             cargo install cargo-c --locked --features vendored-openssl
     fi
 
