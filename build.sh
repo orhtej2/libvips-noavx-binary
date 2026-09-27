@@ -33,6 +33,19 @@ PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"
 export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}"
 export PKG_CONFIG_LIBDIR="${PKG_CONFIG_LIBDIR}"
 export PKG_CONFIG_DIR=""
+# Every dependency here is built as a static (.a) archive only. Route all
+# pkg-config lookups (meson, cmake, autotools) through a wrapper that always
+# passes --static, so transitive static libs (e.g. libheif -> libde265,
+# libwebp -> libsharpyuv) and static-only Cflags (e.g. -DLIBHEIF_STATIC_BUILD)
+# aren't silently dropped from consumers.
+PKG_CONFIG_STATIC_WRAPPER="$WORK_DIR/pkg-config-static"
+mkdir -p "$WORK_DIR"
+cat > "$PKG_CONFIG_STATIC_WRAPPER" <<'PKGCONFIGEOF'
+#!/bin/sh
+exec pkg-config --static "$@"
+PKGCONFIGEOF
+chmod +x "$PKG_CONFIG_STATIC_WRAPPER"
+export PKG_CONFIG="$PKG_CONFIG_STATIC_WRAPPER"
 export CPPFLAGS="-I$PREFIX/include"
 export LDFLAGS="-L$PREFIX/lib -L$PREFIX/lib64${HOST_MULTIARCH:+ -L$PREFIX/lib/$HOST_MULTIARCH}"
 export LD_LIBRARY_PATH="$PREFIX/lib${HOST_MULTIARCH:+:$PREFIX/lib/$HOST_MULTIARCH}:$LD_LIBRARY_PATH"
@@ -323,6 +336,9 @@ build_tiff() {
     ./configure --prefix="$PREFIX" \
                 --disable-shared \
                 --enable-static \
+                --disable-zstd \
+                --disable-lzma \
+                --disable-jbig \
                 --with-zlib-include-dir="$PREFIX/include" \
                 --with-zlib-lib-dir="$PREFIX/lib" \
                 --with-libdeflate-include-dir="$PREFIX/include" \
@@ -462,7 +478,7 @@ build_orc() {
         --libdir=lib \
         --default-library=static \
         --buildtype=release \
-        -Dgtk_doc=disabled \
+        -Dhotdoc=disabled \
         -Dbenchmarks=disabled \
         -Dexamples=disabled \
         -Dtests=disabled \
@@ -571,12 +587,14 @@ build_libimagequant() {
 
     checkout_repo_tag "libimagequant" "$LIBIMAGEQUANT_REPO" "$LIBIMAGEQUANT_TAG"
 
-    cd libimagequant
+    # The C API (capi feature, libimagequant.pc, headers) lives in the
+    # imagequant-sys subcrate, not the workspace root.
+    cd libimagequant/imagequant-sys
     cargo cinstall --release \
         --prefix="$PREFIX" \
         --libdir="$PREFIX/lib" \
         --library-type staticlib
-    cd ..
+    cd ../..
 }
 
 build_libarchive() {
@@ -586,8 +604,11 @@ build_libarchive() {
     checkout_repo_tag "libarchive" "$LIBARCHIVE_REPO" "$LIBARCHIVE_TAG"
 
     cd libarchive
-    rm -rf build
-    cmake -S . -B build \
+    # libarchive's source tree itself has a tracked "build/" directory (cmake
+    # modules, autoconf snippets) -- use a different name for the out-of-source
+    # build dir so it isn't wiped out.
+    rm -rf _cmake_build
+    cmake -S . -B _cmake_build \
         -DCMAKE_INSTALL_PREFIX="$PREFIX" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
@@ -608,8 +629,8 @@ build_libarchive() {
         -DENABLE_ZSTD=OFF \
         -DENABLE_ZLIB=ON \
         -DZLIB_ROOT="$PREFIX"
-    cmake --build build --parallel "$BUILD_JOBS"
-    cmake --install build
+    cmake --build _cmake_build --parallel "$BUILD_JOBS"
+    cmake --install _cmake_build
     cd ..
 }
 
@@ -754,10 +775,6 @@ build_libvips() {
         --default-library=shared \
         -Ddeprecated=false \
         -Dexamples=false \
-        -Dman=false \
-        -Dpo=false \
-        -Dtests=false \
-        -Dtools=true \
         -Dcplusplus=true \
         -Dcpp-docs=false \
         -Ddocs=false \
