@@ -54,7 +54,7 @@ LIBARCHIVE_REPO="https://github.com/libarchive/libarchive.git"
 LIBARCHIVE_TAG="v3.8.9"
 
 PCRE2_REPO="https://github.com/PCRE2Project/pcre2.git"
-PCRE2_TAG="pcre2-10.48"
+PCRE2_TAG="pcre2-10.49"
 
 LIBFFI_REPO="https://github.com/libffi/libffi.git"
 LIBFFI_TAG="v3.8.0"
