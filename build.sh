@@ -204,11 +204,18 @@ install_rust_toolchain() {
         log_warn "Skipping Rust toolchain installation (SKIP_APT_INSTALL=true)"
     fi
 
-    export CARGO_HOME="${CARGO_HOME:-$WORK_DIR/cargo-home}"
-    export RUSTUP_HOME="${RUSTUP_HOME:-$WORK_DIR/rustup-home}"
-    export PATH="$CARGO_HOME/bin:$PATH"
+    # If a toolchain with a configured default is already usable (e.g.
+    # installed by a CI step like dtolnay/rust-toolchain), use it as-is.
+    # Don't clobber CARGO_HOME/RUSTUP_HOME in that case: pointing them at a
+    # fresh empty directory would hide the already-installed toolchain and
+    # make rustup's cargo/rustc shims fail with "no default configured".
+    if command -v rustc &> /dev/null && rustc --version &> /dev/null && cargo --version &> /dev/null; then
+        log_info "Using existing Rust toolchain on PATH"
+    else
+        export CARGO_HOME="${CARGO_HOME:-$WORK_DIR/cargo-home}"
+        export RUSTUP_HOME="${RUSTUP_HOME:-$WORK_DIR/rustup-home}"
+        export PATH="$CARGO_HOME/bin:$PATH"
 
-    if ! command -v rustc &> /dev/null; then
         log_info "Installing Rust toolchain via rustup..."
         mkdir -p "$WORK_DIR"
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$WORK_DIR/rustup-init.sh"
