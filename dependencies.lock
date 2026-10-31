@@ -20,7 +20,7 @@ LIBTIFF_REPO="https://gitlab.com/libtiff/libtiff.git"
 LIBTIFF_TAG="v4.7.2"
 
 LCMS2_REPO="https://github.com/mm2/Little-CMS.git"
-LCMS2_TAG="lcms2.19"
+LCMS2_TAG="lcms2.20"
 
 CGIF_REPO="https://github.com/dloebl/cgif.git"
 CGIF_TAG="v0.5.4"
